@@ -110,13 +110,3 @@ To destroy Terraform infrastructure:
 terraform destroy -auto-approve
 ```
 
----
-
-## Contribution & Issues
-Feel free to open issues or contribute via pull requests.
-
----
-
-## License
-MIT License.
-
