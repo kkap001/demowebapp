@@ -1,0 +1,5 @@
+- name: Install Docker and Doppler
+  hosts: servers
+  become: yes
+  roles:
+    - common

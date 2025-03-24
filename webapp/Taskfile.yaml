@@ -1,0 +1,45 @@
+version: '3'
+tasks:
+  build:
+    desc: Build the webtext-app Docker image
+    cmds:
+      - docker build -t webtext-app .
+
+  lint:
+    desc: Lint the Dockerfile using hadolint
+    cmds:
+      - docker run --rm -i hadolint/hadolint < Dockerfile
+
+  deploy:
+    desc: Deploy the latest webtext-app container locally
+    cmds:
+      - docker run -d --rm -p 8081:80 -e WEBTEXT="Development deploy" --name webtext-app-container webtext-app
+
+  test:
+    desc: Test if the deployment works
+    cmds:
+      - |
+        RESPONSE=$(curl -s localhost:8081)
+        if [ "$RESPONSE" != "Development deploy" ]; then
+          echo "Test failed: Unexpected response: $RESPONSE" && exit 1;
+        fi
+        echo "Test passed: Expected response received"
+
+  clean:
+    desc: Stop and remove the container
+    cmds:
+      - docker stop webtext-app-container || true
+
+  cicd:
+    desc: Run build, lint, deploy, and test in sequence
+    cmds:
+      - task: build
+      - task: lint
+      - task: deploy
+      - task: test
+
+  deploywithdoppler:
+    desc: Deploy the latest webtext-app container using Doppler and AWS Secrets Manager
+    cmds:
+      - export DOPPLER_TOKEN=$(aws secretsmanager get-secret-value --secret-id demo/dev/doppler --query SecretString --output text | jq -r '.DOPPLER_TOKEN')
+      - docker run -d --rm -p 8081:80 --env WEBTEXT=$(doppler secrets get WEBTEXT --plain) --name webtext-app-container webtext-app
