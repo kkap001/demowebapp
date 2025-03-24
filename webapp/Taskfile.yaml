@@ -44,6 +44,7 @@ tasks:
     desc: Stop and remove the container
     cmds:
       - docker stop {{.CONTAINER_NAME}} || true
+      - docker rm {{.CONTAINER_NAME}} || true
 
   cicd:
     desc: Run build, lint, deploy, and test in sequence
