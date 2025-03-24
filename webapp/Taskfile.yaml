@@ -1,9 +1,17 @@
 version: '3'
+vars:
+  DOPPLER_SECRET_ID: demo/dev/doppler
+  DOPPLER_SECRET_KEY: DOPPLER_TOKEN
+  CONTAINER_NAME: webtext-app-container
+  IMAGE_NAME: webtext-app
+  PORT: "8081"
+  WEBTEXT_DEFAULT: "Development deploy"
+
 tasks:
   build:
     desc: Build the webtext-app Docker image
     cmds:
-      - docker build -t webtext-app .
+      - docker build -t {{.IMAGE_NAME}} .
 
   lint:
     desc: Lint the Dockerfile using hadolint
@@ -13,22 +21,29 @@ tasks:
   deploy:
     desc: Deploy the latest webtext-app container locally
     cmds:
-      - docker run -d --rm -p 8081:80 -e WEBTEXT="Development deploy" --name webtext-app-container webtext-app
+      - docker run -d --rm -p {{.PORT}}:80 -e WEBTEXT="{{.WEBTEXT_DEFAULT}}" --name {{.CONTAINER_NAME}} {{.IMAGE_NAME}}
 
   test:
     desc: Test if the deployment works
     cmds:
       - |
-        RESPONSE=$(curl -s localhost:8081)
-        if [ "$RESPONSE" != "Development deploy" ]; then
-          echo "Test failed: Unexpected response: $RESPONSE" && exit 1;
+        for i in {1..5}; do
+          RESPONSE=$(curl -s localhost:{{.PORT}}) && break
+          echo "Retrying in 2 seconds..."
+          sleep 2
+        done
+        echo "Response received: $RESPONSE"
+        if [ "$RESPONSE" != "{{.WEBTEXT_DEFAULT}}" ]; then
+          echo "Test failed: Unexpected response: $RESPONSE" >&2
+          exit 1
         fi
         echo "Test passed: Expected response received"
+
 
   clean:
     desc: Stop and remove the container
     cmds:
-      - docker stop webtext-app-container || true
+      - docker stop {{.CONTAINER_NAME}} || true
 
   cicd:
     desc: Run build, lint, deploy, and test in sequence
@@ -39,7 +54,11 @@ tasks:
       - task: test
 
   deploywithdoppler:
-    desc: Deploy the latest webtext-app container using Doppler and AWS Secrets Manager
+    desc: Run the {{.CONTAINER_NAME}} container with Doppler
     cmds:
-      - export DOPPLER_TOKEN=$(aws secretsmanager get-secret-value --secret-id demo/dev/doppler --query SecretString --output text | jq -r '.DOPPLER_TOKEN')
-      - docker run -d --rm -p 8081:80 --env WEBTEXT=$(doppler secrets get WEBTEXT --plain) --name webtext-app-container webtext-app
+      - docker run -d --name {{.CONTAINER_NAME}} -p {{.PORT}}:80 -e WEBTEXT="{{.WEBTEXT}}" {{.IMAGE_NAME}}
+    vars:
+      doppler_token:
+        sh: aws secretsmanager get-secret-value --secret-id "{{.DOPPLER_SECRET_ID}}" --query "SecretString" --region us-east-1 --output text | jq -r '.{{.DOPPLER_SECRET_KEY}}'
+      WEBTEXT:
+        sh: doppler secrets get WEBTEXT --config dev --plain --token {{.doppler_token}}

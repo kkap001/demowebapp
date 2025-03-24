@@ -9,6 +9,8 @@
       - ca-certificates
       - curl
       - software-properties-common
+      - jq
+      - awscli
     state: present
 
 - name: Add Docker’s official GPG key
@@ -43,3 +45,17 @@
 - name: Show installation output
   debug:
     msg: "{{ output.stdout }}"
+
+- name: Run Taskfile install script
+  shell: sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+
+- name: Add ubuntu user to docker group
+  user:
+    name: ubuntu
+    groups: docker
+    append: yes
+
+- name: Restart Docker service
+  systemd:
+    name: docker
+    state: restarted
